@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>质因数分解器 · 判断质数 / 合数</title>
+<meta name="description" content="输入 1 ~ 100000000 的整数，瞬间判断它是质数还是合数，并给出完整质因数分解式。">
+
+<style>
+  :root {
+    --bg: #f4f5fa;
+    --card: #ffffff;
+    --ink: #171a26;
+    --ink-2: #5d6478;
+    --line: #e5e7f0;
+    --accent: #4f46e5;
+    --accent-2: #7c3aed;
+    --prime: #047857;
+    --prime-bg: #ecfdf5;
+    --composite: #b45309;
+    --composite-bg: #fffbeb;
+    --none: #4b5563;
+    --none-bg: #f3f4f6;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 12px 32px -12px rgba(16,24,40,.12);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1119;
+      --card: #161a24;
+      --ink: #e9ebf3;
+      --ink-2: #98a0b6;
+      --line: #262c3a;
+      --accent: #818cf8;
+      --accent-2: #a78bfa;
+      --prime: #34d399;
+      --prime-bg: rgba(52,211,153,.12);
+      --composite: #fbbf24;
+      --composite-bg: rgba(251,191,36,.12);
+      --none: #9aa3b8;
+      --none-bg: rgba(154,163,184,.12);
+      --danger: #f87171;
+      --danger-bg: rgba(248,113,113,.12);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -12px rgba(0,0,0,.6);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+    padding: 40px 20px 80px;
+    min-height: 100vh;
+  }
+
+  main { max-width: 720px; margin: 0 auto; }
+
+  header { margin-bottom: 28px; }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 34px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h1::before {
+    content: "";
+    width: 10px;
+    height: 26px;
+    border-radius: 3px;
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+    flex: none;
+  }
+
+  .sub { margin: 0; color: var(--ink-2); font-size: 15px; }
+
+  /* ---------- 输入区 ---------- */
+
+  form { display: flex; gap: 12px; margin-top: 24px; }
+
+  #num {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+    padding: 15px 18px;
+    color: var(--ink);
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  #num::placeholder { color: var(--ink-2); opacity: .6; }
+
+  #num:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  button[type="submit"] {
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    padding: 0 30px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+    cursor: pointer;
+    transition: transform .12s, filter .15s;
+    white-space: nowrap;
+  }
+
+  button[type="submit"]:hover { filter: brightness(1.08); }
+  button[type="submit"]:active { transform: scale(.97); }
+
+  #examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    align-items: center;
+  }
+
+  #examples .label { font-size: 13px; color: var(--ink-2); margin-right: 2px; }
+
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- 结果卡 ---------- */
+
+  #result { display: none; margin-top: 28px; }
+
+  #result.show { display: block; animation: rise .25s ease-out; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 26px 28px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  .badge.prime     { color: var(--prime);     background: var(--prime-bg); }
+  .badge.composite { color: var(--composite); background: var(--composite-bg); }
+  .badge.none      { color: var(--none);      background: var(--none-bg); }
+
+  .big {
+    font-size: clamp(30px, 6vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    word-break: break-all;
+  }
+
+  .big sup { font-size: .52em; vertical-align: super; font-weight: 700; }
+
+  /* 质数时只显示这两个字 */
+  .verdict {
+    font-size: clamp(44px, 9vw, 60px);
+    font-weight: 800;
+    letter-spacing: .06em;
+    line-height: 1.15;
+    color: var(--prime);
+  }
+
+  .note { margin-top: 10px; color: var(--ink-2); font-size: 14px; }
+
+  /* ---------- 底部信息 ---------- */
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meta span::after { content: "·"; margin-left: 10px; opacity: .5; }
+  .meta span:last-child::after { content: ""; margin: 0; }
+
+  /* ---------- 错误提示 ---------- */
+
+  .card.error {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  footer {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 520px) {
+    body { padding: 28px 16px 60px; }
+    .card { padding: 22px 20px; }
+    form { flex-direction: column; }
+    button[type="submit"] { padding: 14px 0; }
+  }
+
+  /* 系统开启"减少动态效果"时，取消所有动画 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <h1>质因数分解器</h1>
+    <p class="sub">输入 1 ~ 100000000 的整数，立刻判断它是质数还是合数，并给出分解式。</p>
+  </header>
+
+  <form id="form" autocomplete="off" novalidate>
+    <input id="num" type="text" inputmode="numeric" placeholder="例如 360" aria-label="要分解的整数" autofocus>
+    <button type="submit">分解</button>
+  </form>
+
+  <div id="examples">
+    <span class="label">试试：</span>
+  </div>
+
+  <section id="result" aria-live="polite"></section>
+
+  <footer>
+    范围 1 ~ 100000000 &nbsp;|&nbsp; 预筛 10000 内质数（1229 个），试除分解，最多 1229 次除法<br>
+    由 GitHub Pages 托管 · 纯前端，无需联网
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var MAX = 100000000;
+
+  /* ============================================================
+   * 1. 预处理：筛出 1 ~ √MAX（也就是 10000）以内的质数，共 1229 个
+   *    只占几 KB。为什么不筛到 1 亿？那样要 400 MB 内存，页面根本打不开。
+   * ============================================================ */
+  var SQRT_MAX = Math.floor(Math.sqrt(MAX));   // 10000
+  var primes = (function () {
+    var composite = new Uint8Array(SQRT_MAX + 1);
+    var list = [];
+    for (var i = 2; i <= SQRT_MAX; i++) {
+      if (composite[i]) continue;
+      list.push(i);
+      for (var j = i * i; j <= SQRT_MAX; j += i) composite[j] = 1;
+    }
+    return list;
+  })();
+
+  /* ============================================================
+   * 2. 分解：用这张小质数表逐个试除
+   *    任何 ≤ 1 亿的合数，必定有质因数 ≤ √n ≤ 10000，
+   *    所以扫完整张表后仍没除尽的剩余部分，一定是质数。
+   *    最坏情况（n 本身是大质数）也只需 1229 次除法，微秒级完成。
+   * ============================================================ */
+  function factorize(n) {
+    var out = [];
+    for (var i = 0; i < primes.length; i++) {
+      var p = primes[i];
+      if (p * p > n) break;            // 剩下的部分是质数，可以收工
+      if (n % p !== 0) continue;
+      var e = 0;
+      do { n = n / p; e++; } while (n % p === 0);
+      out.push([p, e]);
+    }
+    if (n > 1) out.push([n, 1]);       // 最后剩下的那个质因数
+    return out;
+  }
+
+  /* ============================================================
+   * 3. 把指数转成上标字符，如 3 → "³"
+   * ============================================================ */
+  var SUP = ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"];
+  function superscript(e) {
+    return String(e).split("").map(function (d) { return SUP[+d]; }).join("");
+  }
+
+  /* 把 [[2,3],[3,2],[5,1]] 变成 "2³ × 3² × 5" */
+  function formatFactors(factors) {
+    return factors.map(function (f) {
+      return f[1] === 1 ? String(f[0]) : f[0] + superscript(f[1]);
+    }).join(" × ");
+  }
+
+  /* ============================================================
+   * 4. 渲染
+   * ============================================================ */
+  var resultEl = document.getElementById("result");
+
+  function showError(msg) {
+    resultEl.className = "show";
+    resultEl.innerHTML = '<div class="card error">' + msg + "</div>";
+  }
+
+  function render(n) {
+    var t0 = performance.now();
+    var factors = factorize(n);
+    var elapsed = performance.now() - t0;
+
+    var isPrime = factors.length === 1 && factors[0][1] === 1;
+
+    /* 分解快到计时器分辨率以下时，显示上限而不是 0.000 */
+    var timeText = elapsed < 0.001
+      ? "用时 &lt; 0.001 ms"
+      : "用时 " + elapsed.toFixed(3) + " ms";
+
+    var html = '<div class="card">';
+
+    if (isPrime) {
+      /* 质数只显示"质数"两个字 */
+      html += '<div class="verdict">质数</div>';
+    } else {
+      html += '<span class="badge composite">合 数</span>';
+      html += '<div class="big">' + n + " = " + formatFactors(factors) + "</div>";
+
+      /* 约数个数 = ∏(指数 + 1) */
+      var dcount = 1;
+      for (var k = 0; k < factors.length; k++) dcount *= factors[k][1] + 1;
+
+      html += '<div class="meta"><span>约数个数 ' + dcount + "</span>";
+      html += "<span>不同质因数 " + factors.length + " 个</span>";
+      html += "<span>" + timeText + "</span></div>";
+    }
+
+    html += "</div>";
+    resultEl.className = "show";
+    resultEl.innerHTML = html;
+  }
+
+  function renderOne() {
+    resultEl.className = "show";
+    resultEl.innerHTML =
+      '<div class="card">' +
+      '<span class="badge none">既非质数，也非合数</span>' +
+      '<div class="big">1</div>' +
+      '<p class="note">1 只有 1 个约数（它自己），按定义既不是质数也不是合数。</p>' +
+      "</div>";
+  }
+
+  /* ============================================================
+   * 5. 输入校验 + 提交
+   * ============================================================ */
+  var input = document.getElementById("num");
+
+  function handle(raw) {
+    var s = raw.trim().replace(/\s+/g, "");
+
+    if (s === "") {
+      return showError("请先输入一个整数。");
+    }
+    if (!/^\d+$/.test(s)) {
+      return showError("只能输入数字：不支持小数点、负号、空格或其他字符。");
+    }
+    /* 去掉前导 0，避免 "0360" 这类写法 */
+    s = s.replace(/^0+(?=\d)/, "");
+
+    var n = Number(s);
+    if (!Number.isSafeInteger(n)) {
+      return showError("数字太大了，请输入 1 ~ 100000000 之间的整数。");
+    }
+    if (n < 1) {
+      return showError("请输入正整数（1 或更大）。");
+    }
+    if (n > MAX) {
+      return showError("超出范围：请输入 1 ~ 100000000 之间的整数。");
+    }
+    if (n === 1) {
+      return renderOne();
+    }
+    render(n);
+  }
+
+  document.getElementById("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    handle(input.value);
+  });
+
+  input.addEventListener("focus", function () { input.select(); });
+
+  /* 示例按钮 */
+  var examples = [1, 2, 97, 360, 999983, 99999989, 100000000];
+  var box = document.getElementById("examples");
+  examples.forEach(function (n) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = n;
+    b.addEventListener("click", function () {
+      input.value = n;
+      handle(String(n));
+    });
+    box.appendChild(b);
+  });
+
+  /* 支持带参数直接打开，例如 index.html#360，方便分享某个数的结果 */
+  if (typeof location !== "undefined" && location.hash.length > 1) {
+    try {
+      var shared = decodeURIComponent(location.hash.slice(1)).trim();
+      if (shared !== "") {
+        input.value = shared;
+        handle(shared);
+      }
+    } catch (err) { /* 分享参数格式异常时忽略即可 */ }
+  }
+
+  /* 挂到全局，方便在浏览器控制台里直接调用（也便于自动化测试） */
+  window.primeFactor = {
+    MAX: MAX,
+    factorize: factorize,
+    formatFactors: formatFactors,
+    render: render,
+    handle: handle
+  };
+})();
+</script>
+
+</body>
+</html>

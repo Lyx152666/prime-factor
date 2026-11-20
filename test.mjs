@@ -1,0 +1,210 @@
+import { readFileSync } from "node:fs";
+
+const MAX = 100000000;
+
+const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+const scriptTag = html.match(/<script>([\s\S]*?)<\/script>/);
+if (!scriptTag) throw new Error("找不到 <script> 块");
+const code = scriptTag[1];
+
+/* ---------- 极简 DOM 桩，用来跑真实的页面脚本 ---------- */
+function makeEl(tag) {
+  return {
+    tagName: tag, _listeners: {}, className: "", innerHTML: "",
+    textContent: "", value: "", type: "", children: [],
+    addEventListener(t, fn) { (this._listeners[t] ||= []).push(fn); },
+    appendChild(c) { this.children.push(c); },
+    select() {}, focus() {},
+    fire(t, ev = {}) { (this._listeners[t] || []).forEach((f) => f(ev)); }
+  };
+}
+const els = {
+  num: makeEl("input"), form: makeEl("form"),
+  examples: makeEl("div"), result: makeEl("section")
+};
+const documentStub = {
+  getElementById: (id) => els[id] || (els[id] = makeEl(id)),
+  createElement: (tag) => makeEl(tag)
+};
+const windowStub = {};
+
+const tLoad = performance.now();
+new Function("document", "window", "performance", code)(
+  documentStub, windowStub, performance
+);
+const loadMs = performance.now() - tLoad;
+
+const api = windowStub.primeFactor;
+if (!api) throw new Error("window.primeFactor 未挂载");
+
+console.log(`脚本加载 + 质数表预处理：${loadMs.toFixed(2)} ms`);
+console.log(`MAX = ${api.MAX}：${api.MAX === MAX ? "✓" : "✗"}`);
+
+/* ==========================================================================
+ * 独立质数表：完整筛到 1 亿（100 MB 位图），完全不复用页面的算法
+ * ========================================================================== */
+const tSieve = performance.now();
+const isPrime = new Uint8Array(MAX + 1).fill(1);
+isPrime[0] = isPrime[1] = 0;
+for (let i = 2; i * i <= MAX; i++) {
+  if (isPrime[i]) for (let j = i * i; j <= MAX; j += i) isPrime[j] = 0;
+}
+let pi = 0;
+for (let i = 2; i <= MAX; i++) pi += isPrime[i];
+console.log(`独立筛表构建：${(performance.now() - tSieve).toFixed(0)} ms，` +
+  `π(10⁸) = ${pi}${pi === 5761455 ? " ✓ 与已知值一致" : " ✗ 期望 5761455"}`);
+
+/* ==========================================================================
+ * 结构性验证：因子全是质数 + 乘起来等于原数 → 由唯一分解定理即为唯一正解
+ * ========================================================================== */
+let fails = 0;
+function check(n) {
+  const got = api.factorize(n);
+  let prod = 1, prev = 0, ok = true;
+
+  for (const [p, e] of got) {
+    if (p <= prev) ok = false;
+    if (!(Number.isInteger(e) && e >= 1)) ok = false;
+    if (!isPrime[p]) ok = false;
+    if (n % p !== 0) ok = false;
+    prev = p;
+    prod *= p ** e;
+  }
+  if (prod !== n) ok = false;
+
+  const looksPrime = got.length === 1 && got[0][1] === 1;
+  if (looksPrime !== !!isPrime[n]) ok = false;
+
+  if (!ok) {
+    fails++;
+    if (fails <= 10) console.log(`✗ ${n} → ${JSON.stringify(got)}`);
+  }
+  return ok;
+}
+
+/* 1) 2 ~ 1,000,000 全量 */
+const t1 = performance.now();
+for (let n = 2; n <= 1000000; n++) check(n);
+console.log(`全量验证 2~1,000,000：${fails === 0 ? "全部通过 ✓" : fails + " 处失败 ✗"}` +
+  `（${(performance.now() - t1).toFixed(0)} ms）`);
+
+/* 2) 1,000,000 ~ 1 亿 随机抽样 20 万个 */
+let seed = 20261120;
+const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+const t2 = performance.now();
+let sampleFail = 0;
+for (let i = 0; i < 200000; i++) {
+  const n = 1000000 + Math.floor(rand() * (MAX - 1000000));
+  if (!check(n)) sampleFail++;
+}
+console.log(`随机抽样 200,000 个（1e6 ~ 1e8）：${sampleFail === 0 ? "全部通过 ✓" : sampleFail + " 处失败 ✗"}` +
+  `（${(performance.now() - t2).toFixed(0)} ms）`);
+
+/* 3) 刻意构造的边界与陷阱用例 */
+const tricky = [
+  99999989,       // 1 亿以内最大的质数
+  100000000,      // 10⁸ = 2⁸ × 5⁸
+  99999999,       // 3² × 11 × 73 × 101 × 137
+  67108864,       // 2²⁶（最大指数）
+  99980001,       // 9999²
+  8388608,        // 2²³
+  9699690,        // 2×3×5×7×11×13×17×19，8 个不同质因数
+  9797 * 9797,
+  9973 * 10007,   // 两个 ~10⁴ 质数相乘，刚好卡在试除边界
+  99991 * 997,    // 一大一小
+  2
+];
+
+let trickyFail = 0;
+for (const n of tricky) {
+  if (!check(n)) trickyFail++;
+  console.log(`  ${String(n).padStart(9)} = ${api.formatFactors(api.factorize(n))}`);
+}
+console.log(`边界用例：${trickyFail === 0 ? "全部通过 ✓" : trickyFail + " 处失败 ✗"}`);
+
+if (fails > 0) console.log(`\n⚠ 结构性验证共 ${fails} 处失败`);
+
+/* ==========================================================================
+ * 与独立的朴素试除参考实现比对
+ * ========================================================================== */
+function factorRef(n) {
+  const out = []; let r = n;
+  for (let p = 2; p * p <= r; p++) {
+    if (r % p === 0) { let e = 0; while (r % p === 0) { r /= p; e++; } out.push([p, e]); }
+  }
+  if (r > 1) out.push([r, 1]);
+  return out;
+}
+let refFails = 0, refCount = 0;
+const cmp = (n) => {
+  refCount++;
+  if (JSON.stringify(api.factorize(n)) !== JSON.stringify(factorRef(n))) {
+    if (refFails++ < 5) console.log(`  ✗ ${n} 与参考实现不一致`);
+  }
+};
+for (let n = 2; n <= 100000; n++) cmp(n);
+for (let i = 0; i < 3000; i++) cmp(100000 + Math.floor(rand() * (MAX - 100000)));
+console.log(`参考实现比对（${refCount} 个数）：${refFails === 0 ? "全部一致 ✓" : refFails + " 处不一致 ✗"}`);
+
+/* ==========================================================================
+ * 性能：最坏情况（大质数，要扫完整张表）
+ * ========================================================================== */
+const worst = [99999989, 99999931, 99999787, 100000000];
+for (const n of worst) {
+  const t = performance.now();
+  const reps = 2000;
+  for (let i = 0; i < reps; i++) api.factorize(n);
+  console.log(`  ${n} 平均每次 ${((performance.now() - t) / reps * 1000).toFixed(1)} µs`);
+}
+
+/* ==========================================================================
+ * 界面渲染与输入校验
+ * ========================================================================== */
+function submit(value) {
+  els.num.value = value;
+  els.result.innerHTML = "";
+  els.result.className = "";
+  els.form.fire("submit", { preventDefault() {} });
+  return els.result.innerHTML;
+}
+
+const uiCases = [
+  ["360", ["合 数", "2³ × 3² × 5", "约数个数 24"], true],
+  ["97", ["质数"], true],
+  ["99999989", ["质数"], true],
+  ["100000000", ["2⁸ × 5⁸"], true],
+  ["1", ["既非质数"], true],
+  [" 0360 ", ["360"], true],
+  ["", ["请先输入"], false],
+  ["abc", ["只能输入数字"], false],
+  ["3.5", ["只能输入数字"], false],
+  ["-5", ["只能输入数字"], false],
+  ["0", ["正整数"], false],
+  ["100000001", ["超出范围"], false]
+];
+let uiFail = 0;
+for (const [input, needles, shouldPass] of uiCases) {
+  const out = submit(input);
+  for (const needle of needles) {
+    if (!out.includes(needle)) {
+      uiFail++;
+      console.log(`✗ 输入 "${input}" 缺少 "${needle}" → ${out.replace(/<[^>]+>/g, " ").slice(0, 80)}`);
+    }
+  }
+  if (!shouldPass && !out.includes("error")) { uiFail++; console.log(`✗ 输入 "${input}" 应报错`); }
+}
+console.log(`界面/校验用例：${uiFail === 0 ? "全部通过 ✓" : uiFail + " 处失败 ✗"}`);
+
+/* ==========================================================================
+ * 质数结果必须只有"质数"两个字
+ * ========================================================================== */
+let strictFail = 0;
+for (const n of [2, 7, 97, 999983, 99999989]) {
+  const out = submit(String(n));
+  const text = out.replace(/<[^>]+>/g, "").trim();
+  if (text !== "质数") { strictFail++; console.log(`✗ ${n} 卡片文字「${text}」`); }
+  if (out.includes("约数个数") || out.includes("用时")) {
+    strictFail++; console.log(`✗ ${n} 仍带小字`);
+  }
+}
+console.log(`质数仅输出"质数"两字：${strictFail === 0 ? "全部通过 ✓" : strictFail + " 处失败 ✗"}`);
