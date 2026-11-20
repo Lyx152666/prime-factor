@@ -710,7 +710,7 @@
   }
 
   /* ============================================================
-   * 6. 猜一猜：随机奇数（不含 5 的倍数），猜质数还是合数
+   * 6. 猜一猜：随机奇数（不含 5 的倍数，3 的倍数降权）
    * ============================================================ */
   var QUIZ_LO = 101;            // 100 以上第一个奇数
   var QUIZ_HI = 9999;           // 10000 以内最后一个奇数
@@ -720,7 +720,7 @@
   var quizEl = document.getElementById("quiz");
   var quiz = null;
 
-  /* 候选池：100 ~ 10000 之间、不是 5 的倍数的奇数 */
+  /* 候选池：100 ~ 10000 之间、不是 5 的倍数的奇数（共 3960 个） */
   var QUIZ_POOL = (function () {
     var list = [];
     for (var n = QUIZ_LO; n <= QUIZ_HI; n += 2) {
@@ -729,16 +729,49 @@
     return list;
   })();
 
-  /* 从候选池里不重复地随机取 k 个（部分洗牌，复杂度 O(k)） */
-  function pickNumbers(k) {
-    var pool = QUIZ_POOL.slice();
-    for (var i = 0; i < k; i++) {
-      var j = i + Math.floor(Math.random() * (pool.length - i));
-      var tmp = pool[i];
-      pool[i] = pool[j];
-      pool[j] = tmp;
+  /* ------------------------------------------------------------
+   * 3 的倍数降权
+   * 原池里 3 的倍数占 1/3（1320 / 3960），现在要求把它的出现概率
+   * 压到原来的三分之一，也就是占全部出题的 1/9。
+   *
+   * 做法：非 3 的倍数权重为 1，3 的倍数权重为 W，再用
+   *       M·W / (M·W + N) = 1/9
+   * 反推出 W。当前池子里 M = 1320、N = 2640，所以 W = 0.25。
+   * 这样即使以后改了取值范围，目标占比也依然成立。
+   * ------------------------------------------------------------ */
+  var THREE_TARGET_SHARE = (1 / 3) / 3;          // 1/9
+  var THREE_WEIGHT = (function () {
+    var m = 0;
+    for (var i = 0; i < QUIZ_POOL.length; i++) {
+      if (QUIZ_POOL[i] % 3 === 0) m++;
     }
-    return pool.slice(0, k);
+    var rest = QUIZ_POOL.length - m;
+    if (m === 0 || rest === 0) return 1;
+    return (THREE_TARGET_SHARE * rest) / (m * (1 - THREE_TARGET_SHARE));
+  })();
+
+  /* 加权抽样：随机抽一个，3 的倍数按权重 W 再抽一次决定是否采用 */
+  function pickNumbers(k) {
+    var chosen = [];
+    var used = Object.create(null);
+    var guard = 0;
+
+    while (chosen.length < k && guard++ < 200000) {
+      var n = QUIZ_POOL[Math.floor(Math.random() * QUIZ_POOL.length)];
+      if (used[n]) continue;
+      if (n % 3 === 0 && Math.random() >= THREE_WEIGHT) continue;
+      used[n] = true;
+      chosen.push(n);
+    }
+
+    /* 理论上到不了这里，兜底保证一定凑够 k 个 */
+    if (chosen.length < k) {
+      for (var i = 0; i < QUIZ_POOL.length && chosen.length < k; i++) {
+        var m = QUIZ_POOL[i];
+        if (!used[m]) { used[m] = true; chosen.push(m); }
+      }
+    }
+    return chosen;
   }
 
   function isPrimeFactors(factors) {
@@ -921,6 +954,8 @@
       next: nextQuiz,
       state: function () { return quiz; },
       poolSize: QUIZ_POOL.length,
+      threeShare: THREE_TARGET_SHARE,
+      threeWeight: THREE_WEIGHT,
       sizes: QUIZ_SIZES
     }
   };

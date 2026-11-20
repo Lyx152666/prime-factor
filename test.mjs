@@ -251,6 +251,36 @@ for (const size of [10, 20]) {
   console.log(`出题规则（200 组 × ${size} 题）：${d === 0 ? "全部通过 ✓" : d + " 处失败 ✗"}`);
 }
 
+/* 1.5) 3 的倍数占比：原来是 1/3，现在应降到 1/9 */
+{
+  const before = qFail;
+
+  if (Math.abs(q.threeShare - 1 / 9) > 1e-9) qLog(`目标占比 ${q.threeShare} 不是 1/9`);
+  if (Math.abs(q.threeWeight - 0.25) > 1e-9) qLog(`权重 ${q.threeWeight} 不是 0.25`);
+
+  let total = 0;
+  let mult3 = 0;
+  const SETS = 10000;
+  for (let s = 0; s < SETS; s++) {
+    q.start(10);
+    for (const n of q.state().numbers) {
+      total++;
+      if (n % 3 === 0) mult3++;
+    }
+  }
+  const share = mult3 / total;
+  const expect = 1 / 9;
+  const beforeShare = 1 / 3;
+
+  console.log(`3 的倍数占比：实测 ${(share * 100).toFixed(2)}%  |  降权前 ${(beforeShare * 100).toFixed(2)}%  |  目标 ${(expect * 100).toFixed(2)}%`);
+  // 10 万个样本，标准差约 0.001，±0.005 已是 5σ 以上
+  if (Math.abs(share - expect) > 0.005) qLog(`占比 ${share.toFixed(4)} 偏离目标 1/9 超过 0.005`);
+  if (share > 0.20) qLog(`占比 ${share.toFixed(4)} 看起来仍是旧概率（1/3 附近）`);
+
+  const d = qFail - before;
+  console.log(`3 的倍数占比（${SETS} 组 × 10 题，共 ${total} 个样本）：${d === 0 ? "全部通过 ✓" : d + " 处失败 ✗"}`);
+}
+
 /* 2) 判定与反馈：答对 ✓、答错 ✗、合数附分解式 */
 const before2 = qFail;
 for (const size of [10, 20]) {
