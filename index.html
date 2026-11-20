@@ -277,6 +277,40 @@
 
   /* ---------- 猜一猜 ---------- */
 
+  .quiz-size {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .quiz-size-label {
+    font-size: 13px;
+    color: var(--ink-2);
+    margin-right: 2px;
+  }
+
+  .size-btn {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+
+  .size-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .size-btn.active {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+  }
+
   .quiz-card {
     margin-top: 22px;
     text-align: center;
@@ -480,7 +514,14 @@
   </section>
 
   <section id="mode-quiz" class="panel" hidden>
-    <p class="sub">随机给出一个 100 ~ 10000 之间的奇数，猜猜它是质数还是合数。一组 10 题。</p>
+    <p class="sub">随机给出 100 ~ 10000 之间的奇数（不是 5 的倍数），猜猜它是质数还是合数。</p>
+
+    <div class="quiz-size" aria-label="每组题数">
+      <span class="quiz-size-label">每组题数</span>
+      <button class="size-btn active" type="button" data-size="10" aria-pressed="true">10 题</button>
+      <button class="size-btn" type="button" data-size="20" aria-pressed="false">20 题</button>
+    </div>
+
     <section id="quiz" aria-live="polite"></section>
   </section>
 
@@ -669,35 +710,65 @@
   }
 
   /* ============================================================
-   * 6. 猜一猜：随机奇数，猜质数还是合数，一组 10 题
+   * 6. 猜一猜：随机奇数（不含 5 的倍数），猜质数还是合数
    * ============================================================ */
-  var QUIZ_TOTAL = 10;
-  var QUIZ_LO = 101;      // 100 以上第一个奇数
-  var QUIZ_HI = 9999;     // 10000 以内最后一个奇数
+  var QUIZ_LO = 101;            // 100 以上第一个奇数
+  var QUIZ_HI = 9999;           // 10000 以内最后一个奇数
+  var QUIZ_SIZES = [10, 20];    // 可选题数
+  var quizSize = 10;
 
   var quizEl = document.getElementById("quiz");
   var quiz = null;
 
-  /* 随机取一个 100~10000 之间的奇数，同组内不重复 */
-  function randomOdd(used) {
-    var count = (QUIZ_HI - QUIZ_LO) / 2 + 1;
-    var n;
-    do {
-      n = QUIZ_LO + 2 * Math.floor(Math.random() * count);
-    } while (used[n]);
-    used[n] = true;
-    return n;
+  /* 候选池：100 ~ 10000 之间、不是 5 的倍数的奇数 */
+  var QUIZ_POOL = (function () {
+    var list = [];
+    for (var n = QUIZ_LO; n <= QUIZ_HI; n += 2) {
+      if (n % 5 !== 0) list.push(n);
+    }
+    return list;
+  })();
+
+  /* 从候选池里不重复地随机取 k 个（部分洗牌，复杂度 O(k)） */
+  function pickNumbers(k) {
+    var pool = QUIZ_POOL.slice();
+    for (var i = 0; i < k; i++) {
+      var j = i + Math.floor(Math.random() * (pool.length - i));
+      var tmp = pool[i];
+      pool[i] = pool[j];
+      pool[j] = tmp;
+    }
+    return pool.slice(0, k);
   }
 
   function isPrimeFactors(factors) {
     return factors.length === 1 && factors[0][1] === 1;
   }
 
-  function newQuiz() {
-    var used = Object.create(null);
-    quiz = { numbers: [], index: 0, correct: 0, answered: false, finished: false, results: [], lastCorrect: false };
-    for (var i = 0; i < QUIZ_TOTAL; i++) quiz.numbers.push(randomOdd(used));
+  function newQuiz(size) {
+    if (size === 10 || size === 20) quizSize = size;
+    quiz = {
+      numbers: pickNumbers(quizSize),
+      total: quizSize,
+      index: 0,
+      correct: 0,
+      answered: false,
+      finished: false,
+      results: [],
+      lastCorrect: false
+    };
+    syncSizeButtons();
     renderQuiz();
+  }
+
+  /* 同步题数按钮的选中状态 */
+  function syncSizeButtons() {
+    var btns = document.querySelectorAll(".size-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var on = Number(btns[i].getAttribute("data-size")) === quizSize;
+      btns[i].classList.toggle("active", on);
+      btns[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
   }
 
   function answerQuiz(guess) {
@@ -715,7 +786,7 @@
 
   function nextQuiz() {
     if (!quiz || !quiz.answered || quiz.finished) return;
-    if (quiz.index + 1 >= QUIZ_TOTAL) {
+    if (quiz.index + 1 >= quiz.total) {
       quiz.finished = true;
     } else {
       quiz.index++;
@@ -724,9 +795,9 @@
     renderQuiz();
   }
 
-  function dotsMarkup(results, current) {
+  function dotsMarkup(results, current, total) {
     var s = '<div class="quiz-dots">';
-    for (var i = 0; i < QUIZ_TOTAL; i++) {
+    for (var i = 0; i < total; i++) {
       var cls = "";
       if (i < results.length) cls = results[i] ? "correct" : "wrong";
       else if (i === current) cls = "current";
@@ -740,16 +811,16 @@
 
     /* ---- 一组结束：给出正确率 ---- */
     if (quiz.finished) {
-      var pct = Math.round((quiz.correct / QUIZ_TOTAL) * 100);
+      var pct = Math.round((quiz.correct / quiz.total) * 100);
       var tone = pct >= 80 ? "good" : pct >= 60 ? "mid" : "bad";
       var judge = pct >= 90 ? "太强了" : pct >= 70 ? "不错" : pct >= 50 ? "再练练" : "多来几组试试";
 
       quizEl.innerHTML =
         '<div class="card quiz-card">' +
-          '<div class="quiz-head"><span>本组完成</span><span>共 ' + QUIZ_TOTAL + " 题</span></div>" +
-          dotsMarkup(quiz.results, -1) +
+          '<div class="quiz-head"><span>本组完成</span><span>共 ' + quiz.total + " 题</span></div>" +
+          dotsMarkup(quiz.results, -1, quiz.total) +
           '<div class="score-big ' + tone + '">' + pct + "<span>%</span></div>" +
-          '<p class="score-text">' + QUIZ_TOTAL + " 题答对 " + quiz.correct + " 题 · " + judge + "</p>" +
+          '<p class="score-text">' + quiz.total + " 题答对 " + quiz.correct + " 题 · " + judge + "</p>" +
           '<button class="btn-next" data-again="1">再来一组</button>' +
         "</div>";
       return;
@@ -761,9 +832,9 @@
     var prime = isPrimeFactors(factors);
 
     var html = '<div class="card quiz-card">' +
-      '<div class="quiz-head"><span>第 ' + (quiz.index + 1) + " / " + QUIZ_TOTAL + " 题</span>" +
+      '<div class="quiz-head"><span>第 ' + (quiz.index + 1) + " / " + quiz.total + " 题</span>" +
       "<span>已答对 " + quiz.correct + " 题</span></div>" +
-      dotsMarkup(quiz.results, quiz.answered ? -1 : quiz.index) +
+      dotsMarkup(quiz.results, quiz.answered ? -1 : quiz.index, quiz.total) +
       '<div class="quiz-number">' + n + "</div>" +
       '<p class="quiz-question">这是质数还是合数？</p>';
 
@@ -786,7 +857,7 @@
       }
       html += "</div>";
       html += '<button class="btn-next" type="button" data-next="1">' +
-        (quiz.index + 1 >= QUIZ_TOTAL ? "看看本组正确率" : "下一题") + "</button>";
+        (quiz.index + 1 >= quiz.total ? "看看本组正确率" : "下一题") + "</button>";
     }
 
     quizEl.innerHTML = html + "</div>";
@@ -826,6 +897,14 @@
     });
   });
 
+  /* 题数按钮：10 题 / 20 题 */
+  var sizeBtns = Array.prototype.slice.call(document.querySelectorAll(".size-btn"));
+  sizeBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      newQuiz(Number(btn.getAttribute("data-size")));
+    });
+  });
+
   newQuiz();
 
   /* 挂到全局，方便在浏览器控制台里直接调用（也便于自动化测试） */
@@ -841,7 +920,8 @@
       answer: answerQuiz,
       next: nextQuiz,
       state: function () { return quiz; },
-      total: QUIZ_TOTAL
+      poolSize: QUIZ_POOL.length,
+      sizes: QUIZ_SIZES
     }
   };
 })();

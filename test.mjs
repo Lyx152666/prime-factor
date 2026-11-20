@@ -221,84 +221,108 @@ const truthOf = (n) => {
 };
 
 let qFail = 0;
-const qLog = (m) => { if (qFail++ < 8) console.log("  ✗ " + m); };
+const qLog = (m) => { if (qFail++ < 10) console.log("  ✗ " + m); };
 
-/* 1) 出题范围：奇数、100~10000、同组不重复 */
-for (let s = 0; s < 300; s++) {
-  q.start();
-  const st = q.state();
-  if (st.numbers.length !== 10) qLog(`第 ${s} 组题量 ${st.numbers.length} ≠ 10`);
-  const seen = new Set();
-  for (const n of st.numbers) {
-    if (n % 2 === 0) qLog(`第 ${s} 组出现偶数 ${n}`);
-    if (n < 100 || n > 10000) qLog(`第 ${s} 组出现越界数字 ${n}`);
-    if (seen.has(n)) qLog(`第 ${s} 组出现重复数字 ${n}`);
-    seen.add(n);
-  }
+/* 候选池 = 4950 个奇数 - 990 个 5 的倍数 = 3960 个 */
+{
+  const expect = 4950 - 990;
+  console.log(`候选池大小：${q.poolSize}（期望 ${expect}）${q.poolSize === expect ? " ✓" : " ✗"}`);
+  if (q.poolSize !== expect) qLog(`候选池大小不对`);
 }
-console.log(`出题规则（300 组 × 10 题）：${qFail === 0 ? "全部通过 ✓" : qFail + " 处失败 ✗"}`);
 
-/* 2) 判定与反馈：答对显示 ✓，答错显示 ✗，合数附分解式 */
-const before2 = qFail;
-for (let s = 0; s < 100; s++) {
-  q.start();
-  for (let i = 0; i < 10; i++) {
+/* 1) 出题规则：奇数、100~10000、不是 5 的倍数、同组不重复、题数正确 */
+for (const size of [10, 20]) {
+  const before = qFail;
+  for (let s = 0; s < 200; s++) {
+    q.start(size);
     const st = q.state();
-    const n = st.numbers[st.index];
-    const truth = truthOf(n);
-    const shouldBeRight = (s + i) % 2 === 0;
-    const guess = shouldBeRight ? truth : (truth === "prime" ? "composite" : "prime");
-
-    q.answer(guess);
-    const out = quizEl.innerHTML;
-    const text = out.replace(/<[^>]+>/g, " ");
-
-    if (!out.includes(String(n))) qLog(`题目 ${n} 未显示`);
-    if (shouldBeRight && !out.includes("答对了")) qLog(`答对 ${n} 却显示错误反馈`);
-    if (!shouldBeRight && !out.includes("答错了")) qLog(`答错 ${n} 却显示正确反馈`);
-    if (shouldBeRight && !out.includes("✓")) qLog(`答对 ${n} 缺少对号`);
-    if (!shouldBeRight && !out.includes("✗")) qLog(`答错 ${n} 缺少错号`);
-
-    if (truth === "prime") {
-      if (!text.includes("质数")) qLog(`质数 ${n} 未说明`);
-    } else {
-      const fmt = api.formatFactors(api.factorize(n));
-      if (!text.includes(fmt)) qLog(`合数 ${n} 未给出分解式 ${fmt}`);
+    if (st.total !== size) qLog(`题数标记 ${st.total} 不等于 ${size}`);
+    if (st.numbers.length !== size) qLog(`第 ${s} 组题量 ${st.numbers.length} 不等于 ${size}`);
+    const seen = new Set();
+    for (const n of st.numbers) {
+      if (n % 2 === 0) qLog(`第 ${s} 组出现偶数 ${n}`);
+      if (n % 5 === 0) qLog(`第 ${s} 组出现 5 的倍数 ${n}`);
+      if (n < 100 || n > 10000) qLog(`第 ${s} 组出现越界数字 ${n}`);
+      if (seen.has(n)) qLog(`第 ${s} 组出现重复数字 ${n}`);
+      seen.add(n);
     }
-    q.next();
+  }
+  const d = qFail - before;
+  console.log(`出题规则（200 组 × ${size} 题）：${d === 0 ? "全部通过 ✓" : d + " 处失败 ✗"}`);
+}
+
+/* 2) 判定与反馈：答对 ✓、答错 ✗、合数附分解式 */
+const before2 = qFail;
+for (const size of [10, 20]) {
+  for (let s = 0; s < 50; s++) {
+    q.start(size);
+    for (let i = 0; i < size; i++) {
+      const st = q.state();
+      const n = st.numbers[st.index];
+      const truth = truthOf(n);
+      const shouldBeRight = (s + i) % 2 === 0;
+      const guess = shouldBeRight ? truth : (truth === "prime" ? "composite" : "prime");
+
+      q.answer(guess);
+      const out = quizEl.innerHTML;
+      const text = out.replace(/<[^>]+>/g, " ");
+
+      if (!out.includes(String(n))) qLog(`题目 ${n} 未显示`);
+      if (shouldBeRight && !out.includes("答对了")) qLog(`答对 ${n} 却显示错误反馈`);
+      if (!shouldBeRight && !out.includes("答错了")) qLog(`答错 ${n} 却显示正确反馈`);
+      if (shouldBeRight && !out.includes("✓")) qLog(`答对 ${n} 缺少对号`);
+      if (!shouldBeRight && !out.includes("✗")) qLog(`答错 ${n} 缺少错号`);
+
+      if (truth === "prime") {
+        if (!text.includes("质数")) qLog(`质数 ${n} 未说明`);
+      } else {
+        const fmt = api.formatFactors(api.factorize(n));
+        if (!text.includes(fmt)) qLog(`合数 ${n} 未给出分解式 ${fmt}`);
+      }
+      q.next();
+    }
   }
 }
-console.log(`答题反馈（100 组全程）：${qFail === before2 ? "全部通过 ✓" : (qFail - before2) + " 处失败 ✗"}`);
+const d2 = qFail - before2;
+console.log(`答题反馈（100 组全程）：${d2 === 0 ? "全部通过 ✓" : d2 + " 处失败 ✗"}`);
 
-/* 3) 一组 10 题后的正确率 */
+/* 3) 结算正确率：10 题与 20 题各若干情形 */
 const before3 = qFail;
-const plans = [[10, 100], [8, 80], [5, 50], [0, 0], [9, 90]];
-for (const [rightCount, expectPct] of plans) {
-  q.start();
-  for (let i = 0; i < 10; i++) {
-    const st = q.state();
-    const n = st.numbers[st.index];
-    const truth = truthOf(n);
-    const wantRight = i < rightCount;
-    q.answer(wantRight ? truth : (truth === "prime" ? "composite" : "prime"));
-    q.next();
+const plans = [
+  [10, [[10, 100], [8, 80], [5, 50], [0, 0], [9, 90]]],
+  [20, [[20, 100], [16, 80], [10, 50], [0, 0], [19, 95], [13, 65]]]
+];
+for (const [size, cases] of plans) {
+  for (const [rightCount, expectPct] of cases) {
+    q.start(size);
+    for (let i = 0; i < size; i++) {
+      const st = q.state();
+      const truth = truthOf(st.numbers[st.index]);
+      const wantRight = i < rightCount;
+      q.answer(wantRight ? truth : (truth === "prime" ? "composite" : "prime"));
+      q.next();
+    }
+    if (!quizEl.innerHTML.includes("本组完成")) qLog(`${size} 题库答完未显示结算`);
+    if (!quizEl.innerHTML.includes(expectPct + "<span>%")) qLog(`${size} 题答对 ${rightCount}，正确率不是 ${expectPct}%`);
+    const text = quizEl.innerHTML.replace(/<[^>]+>/g, " ");
+    if (!text.includes(`答对 ${rightCount} 题`)) qLog(`${size} 题结算文案答对数不对（应为 ${rightCount}）`);
   }
-  const text = quizEl.innerHTML.replace(/<[^>]+>/g, " ");
-  if (!quizEl.innerHTML.includes("本组完成")) qLog(`答对 ${rightCount} 题后未显示结算`);
-  if (!quizEl.innerHTML.includes(expectPct + "<span>%")) qLog(`答对 ${rightCount} 题，正确率不是 ${expectPct}%`);
-  if (!text.includes(`答对 ${rightCount} 题`)) qLog(`结算文案中的答对数不对（应为 ${rightCount}）`);
 }
-console.log(`一组 10 题的结算正确率：${qFail === before3 ? "全部通过 ✓" : (qFail - before3) + " 处失败 ✗"}`);
+const d3 = qFail - before3;
+console.log(`结算正确率（10/20 题共 11 种情形）：${d3 === 0 ? "全部通过 ✓" : d3 + " 处失败 ✗"}`);
 
-/* 4) "再来一组"能重新开始 */
-q.start();
-for (let i = 0; i < 10; i++) {
-  const st = q.state();
-  q.answer(truthOf(st.numbers[st.index]));
-  q.next();
+/* 4) 切换题数后重新开始 */
+{
+  const before = qFail;
+  q.start(20);
+  const a = q.state();
+  if (a.total !== 20 || a.numbers.length !== 20) qLog("切换到 20 题失败");
+  q.start(10);
+  const b = q.state();
+  if (b.total !== 10 || b.numbers.length !== 10) qLog("切换回 10 题失败");
+  if (b.index !== 0 || b.correct !== 0 || b.results.length !== 0) qLog("切换题数后状态未重置");
+  const d = qFail - before;
+  console.log(`题数切换 10 与 20：${d === 0 ? "全部通过 ✓" : d + " 处失败 ✗"}`);
 }
-const finished = q.state().finished;
-q.start();
-const reset = q.state();
-const resetOk = !reset.finished && reset.index === 0 && reset.correct === 0 && reset.results.length === 0;
-console.log(`结算后重新开始：${finished && resetOk ? "全部通过 ✓" : "✗"}`);
+
+console.log(`\n猜一猜模块总计：${qFail === 0 ? "全部通过 ✓" : qFail + " 处失败 ✗"}`);
