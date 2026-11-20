@@ -24,7 +24,8 @@ const els = {
 };
 const documentStub = {
   getElementById: (id) => els[id] || (els[id] = makeEl(id)),
-  createElement: (tag) => makeEl(tag)
+  createElement: (tag) => makeEl(tag),
+  querySelectorAll: () => []
 };
 const windowStub = {};
 
@@ -208,3 +209,96 @@ for (const n of [2, 7, 97, 999983, 99999989]) {
   }
 }
 console.log(`质数仅输出"质数"两字：${strictFail === 0 ? "全部通过 ✓" : strictFail + " 处失败 ✗"}`);
+
+/* ==========================================================================
+ * 猜一猜模块
+ * ========================================================================== */
+const q = api.quiz;
+const quizEl = els.quiz;
+const truthOf = (n) => {
+  const f = api.factorize(n);
+  return f.length === 1 && f[0][1] === 1 ? "prime" : "composite";
+};
+
+let qFail = 0;
+const qLog = (m) => { if (qFail++ < 8) console.log("  ✗ " + m); };
+
+/* 1) 出题范围：奇数、100~10000、同组不重复 */
+for (let s = 0; s < 300; s++) {
+  q.start();
+  const st = q.state();
+  if (st.numbers.length !== 10) qLog(`第 ${s} 组题量 ${st.numbers.length} ≠ 10`);
+  const seen = new Set();
+  for (const n of st.numbers) {
+    if (n % 2 === 0) qLog(`第 ${s} 组出现偶数 ${n}`);
+    if (n < 100 || n > 10000) qLog(`第 ${s} 组出现越界数字 ${n}`);
+    if (seen.has(n)) qLog(`第 ${s} 组出现重复数字 ${n}`);
+    seen.add(n);
+  }
+}
+console.log(`出题规则（300 组 × 10 题）：${qFail === 0 ? "全部通过 ✓" : qFail + " 处失败 ✗"}`);
+
+/* 2) 判定与反馈：答对显示 ✓，答错显示 ✗，合数附分解式 */
+const before2 = qFail;
+for (let s = 0; s < 100; s++) {
+  q.start();
+  for (let i = 0; i < 10; i++) {
+    const st = q.state();
+    const n = st.numbers[st.index];
+    const truth = truthOf(n);
+    const shouldBeRight = (s + i) % 2 === 0;
+    const guess = shouldBeRight ? truth : (truth === "prime" ? "composite" : "prime");
+
+    q.answer(guess);
+    const out = quizEl.innerHTML;
+    const text = out.replace(/<[^>]+>/g, " ");
+
+    if (!out.includes(String(n))) qLog(`题目 ${n} 未显示`);
+    if (shouldBeRight && !out.includes("答对了")) qLog(`答对 ${n} 却显示错误反馈`);
+    if (!shouldBeRight && !out.includes("答错了")) qLog(`答错 ${n} 却显示正确反馈`);
+    if (shouldBeRight && !out.includes("✓")) qLog(`答对 ${n} 缺少对号`);
+    if (!shouldBeRight && !out.includes("✗")) qLog(`答错 ${n} 缺少错号`);
+
+    if (truth === "prime") {
+      if (!text.includes("质数")) qLog(`质数 ${n} 未说明`);
+    } else {
+      const fmt = api.formatFactors(api.factorize(n));
+      if (!text.includes(fmt)) qLog(`合数 ${n} 未给出分解式 ${fmt}`);
+    }
+    q.next();
+  }
+}
+console.log(`答题反馈（100 组全程）：${qFail === before2 ? "全部通过 ✓" : (qFail - before2) + " 处失败 ✗"}`);
+
+/* 3) 一组 10 题后的正确率 */
+const before3 = qFail;
+const plans = [[10, 100], [8, 80], [5, 50], [0, 0], [9, 90]];
+for (const [rightCount, expectPct] of plans) {
+  q.start();
+  for (let i = 0; i < 10; i++) {
+    const st = q.state();
+    const n = st.numbers[st.index];
+    const truth = truthOf(n);
+    const wantRight = i < rightCount;
+    q.answer(wantRight ? truth : (truth === "prime" ? "composite" : "prime"));
+    q.next();
+  }
+  const text = quizEl.innerHTML.replace(/<[^>]+>/g, " ");
+  if (!quizEl.innerHTML.includes("本组完成")) qLog(`答对 ${rightCount} 题后未显示结算`);
+  if (!quizEl.innerHTML.includes(expectPct + "<span>%")) qLog(`答对 ${rightCount} 题，正确率不是 ${expectPct}%`);
+  if (!text.includes(`答对 ${rightCount} 题`)) qLog(`结算文案中的答对数不对（应为 ${rightCount}）`);
+}
+console.log(`一组 10 题的结算正确率：${qFail === before3 ? "全部通过 ✓" : (qFail - before3) + " 处失败 ✗"}`);
+
+/* 4) "再来一组"能重新开始 */
+q.start();
+for (let i = 0; i < 10; i++) {
+  const st = q.state();
+  q.answer(truthOf(st.numbers[st.index]));
+  q.next();
+}
+const finished = q.state().finished;
+q.start();
+const reset = q.state();
+const resetOk = !reset.finished && reset.index === 0 && reset.correct === 0 && reset.results.length === 0;
+console.log(`结算后重新开始：${finished && resetOk ? "全部通过 ✓" : "✗"}`);

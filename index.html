@@ -238,6 +238,195 @@
     font-weight: 600;
   }
 
+  /* ---------- 模式切换 ---------- */
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-top: 22px;
+    padding: 5px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .tab {
+    flex: 1;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+
+  .tab:hover { color: var(--ink); }
+
+  .tab.active {
+    color: #fff;
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+  }
+
+  .panel[hidden] { display: none; }
+
+  .panel > .sub { margin: 18px 0 0; }
+
+  /* ---------- 猜一猜 ---------- */
+
+  .quiz-card {
+    margin-top: 22px;
+    text-align: center;
+  }
+
+  .quiz-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  .quiz-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 14px 0 0;
+  }
+
+  .quiz-dots i {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--line);
+  }
+
+  .quiz-dots i.correct { background: var(--prime); }
+  .quiz-dots i.wrong { background: var(--danger); }
+  .quiz-dots i.current { background: var(--accent); transform: scale(1.35); }
+
+  .quiz-number {
+    font-size: clamp(56px, 14vw, 84px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    margin: 20px 0 4px;
+  }
+
+  .quiz-question {
+    font-size: 15px;
+    color: var(--ink-2);
+    margin: 0 0 22px;
+  }
+
+  .quiz-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .guess {
+    font: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 16px 0;
+    border-radius: 12px;
+    border: 2px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform .12s, border-color .15s, color .15s;
+  }
+
+  .guess:active { transform: scale(.97); }
+  .guess.prime:hover { border-color: var(--prime); color: var(--prime); }
+  .guess.composite:hover { border-color: var(--composite); color: var(--composite); }
+
+  .feedback {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    animation: rise .2s ease-out;
+  }
+
+  .mark {
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .mark.good { color: var(--prime); }
+  .mark.bad { color: var(--danger); }
+
+  .mark-text {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+
+  .mark-text.good { color: var(--prime); }
+  .mark-text.bad { color: var(--danger); }
+
+  .truth {
+    margin: 12px 0 0;
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+
+  .truth b {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .truth sup {
+    font-size: .6em;
+    vertical-align: super;
+    font-weight: 700;
+  }
+
+  .btn-next {
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px 0;
+    border: 0;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(160deg, var(--accent), var(--accent-2));
+    cursor: pointer;
+    transition: filter .15s, transform .12s;
+  }
+
+  .btn-next:hover { filter: brightness(1.08); }
+  .btn-next:active { transform: scale(.98); }
+
+  .score-big {
+    font-size: clamp(60px, 15vw, 84px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    margin: 18px 0 6px;
+  }
+
+  .score-big span { font-size: .42em; font-weight: 700; margin-left: 2px; }
+  .score-big.good { color: var(--prime); }
+  .score-big.mid { color: var(--accent); }
+  .score-big.bad { color: var(--danger); }
+
+  .score-text { color: var(--ink-2); font-size: 15px; margin: 0; }
+
   footer {
     margin-top: 40px;
     text-align: center;
@@ -267,22 +456,36 @@
 <main>
   <header>
     <h1>质因数分解器</h1>
-    <p class="sub">输入 1 ~ 100000000 的整数，立刻判断它是质数还是合数，并给出分解式。</p>
+    <p class="sub">判断质数、分解质因数，或者来做一组小测试。</p>
   </header>
 
-  <form id="form" autocomplete="off" novalidate>
-    <input id="num" type="text" inputmode="numeric" placeholder="例如 360" aria-label="要分解的整数" autofocus>
-    <button type="submit">分解</button>
-  </form>
+  <nav class="tabs" role="tablist" aria-label="选择模式">
+    <button class="tab active" type="button" data-mode="calc" role="tab" aria-selected="true">分解工具</button>
+    <button class="tab" type="button" data-mode="quiz" role="tab" aria-selected="false">猜一猜</button>
+  </nav>
 
-  <div id="examples">
-    <span class="label">试试：</span>
-  </div>
+  <section id="mode-calc" class="panel">
+    <p class="sub">输入 1 ~ 100000000 的整数，立刻判断它是质数还是合数，并给出分解式。</p>
 
-  <section id="result" aria-live="polite"></section>
+    <form id="form" autocomplete="off" novalidate>
+      <input id="num" type="text" inputmode="numeric" placeholder="例如 360" aria-label="要分解的整数" autofocus>
+      <button type="submit">分解</button>
+    </form>
+
+    <div id="examples">
+      <span class="label">试试：</span>
+    </div>
+
+    <section id="result" aria-live="polite"></section>
+  </section>
+
+  <section id="mode-quiz" class="panel" hidden>
+    <p class="sub">随机给出一个 100 ~ 10000 之间的奇数，猜猜它是质数还是合数。一组 10 题。</p>
+    <section id="quiz" aria-live="polite"></section>
+  </section>
 
   <footer>
-    范围 1 ~ 100000000 &nbsp;|&nbsp; 预筛 10000 内质数（1229 个），试除分解，最多 1229 次除法<br>
+    分解范围 1 ~ 100000000 &nbsp;|&nbsp; 预筛 10000 内质数（1229 个），试除分解<br>
     由 GitHub Pages 托管 · 纯前端，无需联网
   </footer>
 </main>
@@ -465,13 +668,181 @@
     } catch (err) { /* 分享参数格式异常时忽略即可 */ }
   }
 
+  /* ============================================================
+   * 6. 猜一猜：随机奇数，猜质数还是合数，一组 10 题
+   * ============================================================ */
+  var QUIZ_TOTAL = 10;
+  var QUIZ_LO = 101;      // 100 以上第一个奇数
+  var QUIZ_HI = 9999;     // 10000 以内最后一个奇数
+
+  var quizEl = document.getElementById("quiz");
+  var quiz = null;
+
+  /* 随机取一个 100~10000 之间的奇数，同组内不重复 */
+  function randomOdd(used) {
+    var count = (QUIZ_HI - QUIZ_LO) / 2 + 1;
+    var n;
+    do {
+      n = QUIZ_LO + 2 * Math.floor(Math.random() * count);
+    } while (used[n]);
+    used[n] = true;
+    return n;
+  }
+
+  function isPrimeFactors(factors) {
+    return factors.length === 1 && factors[0][1] === 1;
+  }
+
+  function newQuiz() {
+    var used = Object.create(null);
+    quiz = { numbers: [], index: 0, correct: 0, answered: false, finished: false, results: [], lastCorrect: false };
+    for (var i = 0; i < QUIZ_TOTAL; i++) quiz.numbers.push(randomOdd(used));
+    renderQuiz();
+  }
+
+  function answerQuiz(guess) {
+    if (!quiz || quiz.answered || quiz.finished) return;
+    var n = quiz.numbers[quiz.index];
+    var truthIsPrime = isPrimeFactors(factorize(n));
+    var saidPrime = guess === "prime";
+
+    quiz.answered = true;
+    quiz.lastCorrect = saidPrime === truthIsPrime;
+    if (quiz.lastCorrect) quiz.correct++;
+    quiz.results.push(quiz.lastCorrect);
+    renderQuiz();
+  }
+
+  function nextQuiz() {
+    if (!quiz || !quiz.answered || quiz.finished) return;
+    if (quiz.index + 1 >= QUIZ_TOTAL) {
+      quiz.finished = true;
+    } else {
+      quiz.index++;
+      quiz.answered = false;
+    }
+    renderQuiz();
+  }
+
+  function dotsMarkup(results, current) {
+    var s = '<div class="quiz-dots">';
+    for (var i = 0; i < QUIZ_TOTAL; i++) {
+      var cls = "";
+      if (i < results.length) cls = results[i] ? "correct" : "wrong";
+      else if (i === current) cls = "current";
+      s += '<i class="' + cls + '"></i>';
+    }
+    return s + "</div>";
+  }
+
+  function renderQuiz() {
+    if (!quiz) return;
+
+    /* ---- 一组结束：给出正确率 ---- */
+    if (quiz.finished) {
+      var pct = Math.round((quiz.correct / QUIZ_TOTAL) * 100);
+      var tone = pct >= 80 ? "good" : pct >= 60 ? "mid" : "bad";
+      var judge = pct >= 90 ? "太强了" : pct >= 70 ? "不错" : pct >= 50 ? "再练练" : "多来几组试试";
+
+      quizEl.innerHTML =
+        '<div class="card quiz-card">' +
+          '<div class="quiz-head"><span>本组完成</span><span>共 ' + QUIZ_TOTAL + " 题</span></div>" +
+          dotsMarkup(quiz.results, -1) +
+          '<div class="score-big ' + tone + '">' + pct + "<span>%</span></div>" +
+          '<p class="score-text">' + QUIZ_TOTAL + " 题答对 " + quiz.correct + " 题 · " + judge + "</p>" +
+          '<button class="btn-next" data-again="1">再来一组</button>' +
+        "</div>";
+      return;
+    }
+
+    /* ---- 答题中 ---- */
+    var n = quiz.numbers[quiz.index];
+    var factors = factorize(n);
+    var prime = isPrimeFactors(factors);
+
+    var html = '<div class="card quiz-card">' +
+      '<div class="quiz-head"><span>第 ' + (quiz.index + 1) + " / " + QUIZ_TOTAL + " 题</span>" +
+      "<span>已答对 " + quiz.correct + " 题</span></div>" +
+      dotsMarkup(quiz.results, quiz.answered ? -1 : quiz.index) +
+      '<div class="quiz-number">' + n + "</div>" +
+      '<p class="quiz-question">这是质数还是合数？</p>';
+
+    if (!quiz.answered) {
+      html += '<div class="quiz-actions">' +
+        '<button class="guess prime" type="button" data-guess="prime">质数</button>' +
+        '<button class="guess composite" type="button" data-guess="composite">合数</button>' +
+        "</div>";
+    } else {
+      html += '<div class="feedback">';
+      if (quiz.lastCorrect) {
+        html += '<div class="mark good">✓</div><div class="mark-text good">答对了</div>';
+      } else {
+        html += '<div class="mark bad">✗</div><div class="mark-text bad">答错了</div>';
+      }
+      if (prime) {
+        html += '<p class="truth">' + n + " 是<b>质数</b>，只能被 1 和它本身整除。</p>";
+      } else {
+        html += '<p class="truth">' + n + " 是<b>合数</b>：" + n + " = " + formatFactors(factors) + "</p>";
+      }
+      html += "</div>";
+      html += '<button class="btn-next" type="button" data-next="1">' +
+        (quiz.index + 1 >= QUIZ_TOTAL ? "看看本组正确率" : "下一题") + "</button>";
+    }
+
+    quizEl.innerHTML = html + "</div>";
+  }
+
+  /* 用事件委托，卡片重绘后不需要重新绑定 */
+  quizEl.addEventListener("click", function (e) {
+    var target = e.target;
+    if (!target || !target.closest) return;
+    if (target.closest("[data-guess]")) {
+      answerQuiz(target.closest("[data-guess]").getAttribute("data-guess"));
+    } else if (target.closest("[data-next]")) {
+      nextQuiz();
+    } else if (target.closest("[data-again]")) {
+      newQuiz();
+    }
+  });
+
+  /* ============================================================
+   * 7. 模式切换
+   * ============================================================ */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+
+  function setMode(mode) {
+    tabs.forEach(function (t) {
+      var on = t.getAttribute("data-mode") === mode;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    document.getElementById("mode-calc").hidden = mode !== "calc";
+    document.getElementById("mode-quiz").hidden = mode !== "quiz";
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      setMode(t.getAttribute("data-mode"));
+    });
+  });
+
+  newQuiz();
+
   /* 挂到全局，方便在浏览器控制台里直接调用（也便于自动化测试） */
   window.primeFactor = {
     MAX: MAX,
     factorize: factorize,
     formatFactors: formatFactors,
     render: render,
-    handle: handle
+    handle: handle,
+    setMode: setMode,
+    quiz: {
+      start: newQuiz,
+      answer: answerQuiz,
+      next: nextQuiz,
+      state: function () { return quiz; },
+      total: QUIZ_TOTAL
+    }
   };
 })();
 </script>
